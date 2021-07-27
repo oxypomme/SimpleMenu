@@ -32,7 +32,7 @@ interface SMOptions {
 
 /**
  * Action triggered when user click on the action
- * 
+ *
  * @param ev The original event
  * @param origin The parent of the menu
  */
@@ -47,7 +47,7 @@ export class SimpleMenu {
 
   /**
    * Init the menu
-   * 
+   *
    * @param el The parent of the menu
    * @param cm The menu
    * @param options Various options
@@ -73,7 +73,7 @@ export class SimpleMenu {
 
   /**
    * Create the menu element
-   * 
+   *
    * @param cm The menu (or the sub-menu)
    * @returns The menu element
    */
@@ -97,7 +97,8 @@ export class SimpleMenu {
 
       if (typeof content === 'string') {
         item.innerHTML = content;
-      } else if (typeof content === 'object' && content.label) { // If it's a detailled entry
+      } else if (typeof content === 'object' && content.label) {
+        // If it's a detailled entry
         if (typeof content.label === 'string') {
           item.innerHTML = content.label;
         } else if (content.label instanceof HTMLElement) {
@@ -119,13 +120,15 @@ export class SimpleMenu {
       } else if (
         typeof content === 'object' &&
         typeof content.action === 'function'
-      ) {  // If it's a detailled entry
+      ) {
+        // If it's a detailled entry
         item.addEventListener('click', ev => {
           ev.stopPropagation();
           if (this.options?.quitAfterClick) {
             closeMenu();
           }
-          if (typeof content.action === 'function') { //? Ask TS why I need to this tho
+          if (typeof content.action === 'function') {
+            //? Ask TS why I need to this tho
             return content.action(ev, this.baseElement);
           }
         });
@@ -135,11 +138,14 @@ export class SimpleMenu {
       if (
         typeof content === 'object' &&
         (!(content.action || content.label) || content.sub)
-      ) { // If it's a detailled entry or an entry
+      ) {
+        // If it's a detailled entry or an entry
         let sub: SMContext;
-        if (!content.sub) { // If it's an entry
+        if (!content.sub) {
+          // If it's an entry
           sub = content as SMContext;
-        } else { // If it's a detailled entry
+        } else {
+          // If it's a detailled entry
           sub = content.sub as SMContext;
         }
 
@@ -164,7 +170,7 @@ export class SimpleMenu {
               }
           `);
         item.appendChild(icon);
-        
+
         item.appendChild(subMenu);
       }
       menu.appendChild(item);

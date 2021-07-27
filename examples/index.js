@@ -5,7 +5,7 @@ const mySuperItem = document.getElementById('#superDuperItem');
 if (mySuperItem) {
   const test = document.createElement('b');
   test.innerText = 'Sous Menu';
-  
+
   new SimpleMenu(
     mySuperItem,
     {
