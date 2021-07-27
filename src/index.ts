@@ -44,6 +44,8 @@ export class SimpleMenu {
   private baseElement: HTMLElement;
   /** Various options */
   private options: SMOptions | undefined;
+  /** Class name for menu & sub-menus */
+  private className: string;
 
   /**
    * Init the menu
@@ -56,19 +58,88 @@ export class SimpleMenu {
     this.baseElement = el;
     this.options = options;
 
+    /**
+     * Priority order :
+     *  1 - default CSS
+     *  2 - custom classLists
+     *  3 - custom CSS
+     */
+     this.className = 
+      cx(
+        css`
+          display: none;
+          list-style: none;
+          padding: 0;
+          margin: 0;
+          width: fit-content;
+          border: 1px solid black;
+          border-radius: 3px;
+          position: relative;
+          background: white;
+
+          & & {
+            position: absolute;
+            left: 100%;
+            top: 0;
+            display: none;
+
+            &:hover {
+              display: block;
+            }
+          }
+
+          & > li {
+            position: relative;
+            padding: 5px;
+            cursor: default;
+
+            &:hover {
+              background: #ddd;
+            }
+
+            &:hover > ul {
+              display: block;
+            }
+          }
+        `,
+        // Merging classLists with default CSS
+        this.options?.classList ? [...this.options.classList] : '',
+        // Merging custom CSS with default CSS
+        css(this.options?.css) || ''
+      )
+    ;
+
+    const container = document.createElement('div');
+    const parentClassName = css`
+      position: absolute;
+    `;
+    container.classList.add(parentClassName);
+
     const menu = this.buildMenu(cm);
 
     // Adding the core event
     this.baseElement.addEventListener('contextmenu', ev => {
       ev.preventDefault();
+      // Close all other menus
+      document.querySelectorAll(`.${parentClassName} > .${this.className}`).forEach((m) => {
+        (<HTMLElement>m).style.display = 'none';
+      })
+
       menu.style.display = 'block';
+      if(menu.parentElement) {
+        // TODO : 1 element 4 all => Keep positions. Or find a way to ignore a relative parent
+        const { top, left } = this.baseElement.getBoundingClientRect();
+        menu.parentElement.style.top = (top + (this.baseElement.offsetHeight / 2)).toString() + 'px';
+        menu.parentElement.style.left = (left + 3 * (this.baseElement.offsetWidth / 4)).toString() + 'px';
+      }
     });
     // If mouse leave, please close
     menu.addEventListener('mouseleave', function() {
       this.style.display = 'none';
     });
 
-    this.baseElement.appendChild(menu);
+    container.appendChild(menu);
+    this.baseElement.appendChild(container);
   }
 
   /**
@@ -93,7 +164,8 @@ export class SimpleMenu {
       // In case you want to identify each entry
       item.setAttribute('name', `sm_${label.replace(' ', '-')}`);
 
-      //! I DON'T LIKE TYPE GUARD
+      //! I DON'T LIKE TYPES GUARDS
+      //TODO: Subjugate my fear of types guards and make some. Sigh.
 
       if (typeof content === 'string') {
         item.innerHTML = content;
@@ -173,58 +245,9 @@ export class SimpleMenu {
 
         item.appendChild(subMenu);
       }
+      menu.classList.add(this.className);
       menu.appendChild(item);
     }
-
-    /**
-     * Priority order :
-     *  1 - default CSS
-     *  2 - custom classLists
-     *  3 - custom CSS
-     */
-    menu.classList.add(
-      cx(
-        css`
-          display: none;
-          list-style: none;
-          padding: 0;
-          margin: 0;
-          width: fit-content;
-          border: 1px solid black;
-          border-radius: 3px;
-          position: relative;
-
-          & & {
-            position: absolute;
-            left: 100%;
-            top: 0;
-            display: none;
-
-            &:hover {
-              display: block;
-            }
-          }
-
-          & > li {
-            position: relative;
-            padding: 5px;
-            cursor: default;
-
-            &:hover {
-              background: #ddd;
-            }
-
-            &:hover > ul {
-              display: block;
-            }
-          }
-        `,
-        // Merging classLists with default CSS
-        this.options?.classList ? [...this.options.classList] : '',
-        // Merging custom CSS with default CSS
-        css(this.options?.css) || ''
-      )
-    );
 
     return menu;
   }
