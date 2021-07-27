@@ -1,12 +1,13 @@
 import { SimpleMenu } from '../src';
 
-const el = <HTMLElement>(window as any).el;
+const mySuperItem = document.getElementById('#superDuperItem');
 
-if (el) {
+if (mySuperItem) {
   const test = document.createElement('b');
   test.innerText = 'Sous Menu';
+  
   new SimpleMenu(
-    el,
+    mySuperItem,
     {
       action1: () => {
         console.log('Hey !');
