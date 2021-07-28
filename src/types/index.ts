@@ -54,4 +54,6 @@ export interface SMOptions {
   classList?: string[];
   /** If no suffix is defined, sub-menu holders will not have a `>` (default: `false`) */
   noPredefinedSuffix?: boolean;
+  /** If menu must be in parent's element */
+  keepInParent?: boolean;
 }

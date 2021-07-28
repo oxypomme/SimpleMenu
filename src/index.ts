@@ -28,7 +28,7 @@ export class SimpleMenu {
      *  3 - custom CSS
      */
     let cxargs: string[] = [];
-    if(this.options?.classList) {
+    if (this.options?.classList) {
       cxargs = [...cxargs, ...this.options.classList];
     }
     this.className = cx(
@@ -66,12 +66,12 @@ export class SimpleMenu {
             flex: 1;
             align-self: center;
           }
-          
+
           & > .sm_css-prefix {
             margin-right: 5px;
             text-align: start;
           }
-          
+
           & > .sm_css-suffix {
             margin-left: 5px;
             text-align: end;
@@ -79,6 +79,13 @@ export class SimpleMenu {
 
           &:hover {
             background: #ddd;
+          }
+
+          &:first-child:hover {
+            border-radius: 3px 3px 0 0;
+          }
+          &:last-child:hover {
+            border-radius: 0 0 3px 3px;
           }
 
           &:hover > ul {
@@ -112,11 +119,30 @@ export class SimpleMenu {
 
       menu.style.display = 'block';
       if (menu.parentElement) {
-        const { width, height } = this.baseElement.getBoundingClientRect();
-        menu.parentElement.style.top =
-          (this.baseElement.offsetTop + height / 2).toString() + 'px';
-        menu.parentElement.style.left =
-          (this.baseElement.offsetLeft + width / 4).toString() + 'px';
+        const baseRect = this.baseElement.getBoundingClientRect();
+        const coords: { [type: string]: number } = {
+          top: this.baseElement.offsetTop + baseRect.height / 2,
+          left: this.baseElement.offsetLeft + baseRect.width / 4,
+        };
+
+        if (this.options?.keepInParent && this.baseElement.parentElement) {
+          // Keep menu into baseElement's parent
+          const parentEl = <any>this.baseElement.parentElement;
+          for (const [offsetName, coordName, sizeName] of [['offsetWidth', 'left', 'width'], ['offsetHeight', 'top', 'height']]) {
+            if(coords[coordName] < 0) {
+              // Adding a small "margin" to be cleaner if there's a border
+              coords[coordName] = 5;
+            } else if ((coords[coordName] + (<any>baseRect)[sizeName]) > parentEl[offsetName]) {
+              // Adding a small "margin" to be cleaner if there's a border
+              coords[coordName] -= coords[coordName] + (<any>baseRect)[sizeName] - parentEl[offsetName] + 5;
+            }
+          }
+        }
+
+        for (const [coordName, coordValue] of Object.entries(coords)) {
+          (<any>menu.parentElement.style)[coordName] =
+            coordValue.toString() + 'px';
+        }
       }
     });
     // If mouse leave, please close
@@ -194,7 +220,7 @@ export class SimpleMenu {
         }
 
         if (content.sub) {
-          if(!content.suffix && !this.options?.noPredefinedSuffix) {
+          if (!content.suffix && !this.options?.noPredefinedSuffix) {
             item.innerHTML += '<span class="sm_css-suffix">></span>';
           }
           item.appendChild(this.buildMenu(content.sub));
@@ -202,19 +228,17 @@ export class SimpleMenu {
 
         if (content.classList || content.css) {
           let cxargs: string[] = [];
-          if(content.classList) {
-            cxargs = [...cxargs, ...content.classList]
+          if (content.classList) {
+            cxargs = [...cxargs, ...content.classList];
           }
           item.classList.add(
-            'sm_css-item ', cx(
-              ...cxargs,
-              content.css ? css(content.css) : ''
-            )
+            'sm_css-item',
+            cx(...cxargs, content.css ? css(content.css) : '')
           );
         }
       } else if (isSMContext(content)) {
         item.innerText += label;
-        if(!this.options?.noPredefinedSuffix) {
+        if (!this.options?.noPredefinedSuffix) {
           item.innerHTML += '<span class="sm_css-suffix">></span>';
         }
         item.appendChild(this.buildMenu(content));
