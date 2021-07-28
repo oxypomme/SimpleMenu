@@ -8,6 +8,14 @@ interface SMContent {
   label?: string | HTMLElement;
   /** Action triggered when user click on the entry */
   action?: SMHandler;
+  /** Icon prefix of the entry */
+  iconPrefix?: string | HTMLElement;
+  /** Icon suffix of the entry */
+  iconSuffix?: string | HTMLElement;
+  /** Custom CSS as a `string` passed to the entry (through `emotion`) */
+  css?: string;
+  /** Custom CSS classes passed to the menu */
+  classList?: string[];
   /** Sub-menu content */
   sub?: SMContext;
 }
@@ -26,8 +34,6 @@ interface SMOptions {
   css?: string;
   /** Custom CSS classes passed to the menu */
   classList?: string[];
-  /** If you want to use FA, specify the prefix (`fa`, `fas`, etc.) */
-  fontAwesomePrefix?: string;
 }
 
 /**
@@ -64,50 +70,56 @@ export class SimpleMenu {
      *  2 - custom classLists
      *  3 - custom CSS
      */
-     this.className = 
-      cx(
-        css`
+    this.className = cx(
+      css`
+        display: none;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        width: fit-content;
+        border: 1px solid black;
+        border-radius: 3px;
+        position: relative;
+        background: white;
+
+        & & {
+          position: absolute;
+          left: 100%;
+          top: 0;
           display: none;
-          list-style: none;
-          padding: 0;
-          margin: 0;
-          width: fit-content;
-          border: 1px solid black;
-          border-radius: 3px;
+
+          &:hover {
+            display: block;
+          }
+        }
+
+        & > li {
           position: relative;
-          background: white;
+          padding: 5px;
+          cursor: default;
+          display: flex;
 
-          & & {
-            position: absolute;
-            left: 100%;
-            top: 0;
-            display: none;
-
-            &:hover {
-              display: block;
-            }
+          & > :first-child:not(ul) {
+            flex: 1;
+            align-self: center;
+            text-align: start;
+            margin-right: 5px;
           }
 
-          & > li {
-            position: relative;
-            padding: 5px;
-            cursor: default;
-
-            &:hover {
-              background: #ddd;
-            }
-
-            &:hover > ul {
-              display: block;
-            }
+          &:hover {
+            background: #ddd;
           }
-        `,
-        // Merging classLists with default CSS
-        this.options?.classList ? [...this.options.classList] : '',
-        // Merging custom CSS with default CSS
-        css(this.options?.css) || ''
-      )
-    ;
+
+          &:hover > ul {
+            display: block;
+          }
+        }
+      `,
+      // Merging classLists with default CSS
+      this.options?.classList ? [...this.options.classList] : '',
+      // Merging custom CSS with default CSS
+      css(this.options?.css) || ''
+    );
 
     const container = document.createElement('div');
     const parentClassName = css`
@@ -121,21 +133,25 @@ export class SimpleMenu {
     this.baseElement.addEventListener('contextmenu', ev => {
       ev.preventDefault();
       // Close all other menus
-      document.querySelectorAll(`.${parentClassName} > .${this.className}`).forEach((m) => {
-        (<HTMLElement>m).style.display = 'none';
-      })
+      document
+        .querySelectorAll(`.${parentClassName} > .${this.className}`)
+        .forEach(m => {
+          (<HTMLElement>m).style.display = 'none';
+        });
 
       menu.style.display = 'block';
-      if(menu.parentElement) {
+      if (menu.parentElement) {
         // TODO : 1 element 4 all => Keep positions. Or find a way to ignore a relative parent
-        const { top, left } = this.baseElement.getBoundingClientRect();
-        menu.parentElement.style.top = (top + (this.baseElement.offsetHeight / 2)).toString() + 'px';
-        menu.parentElement.style.left = (left + 3 * (this.baseElement.offsetWidth / 4)).toString() + 'px';
+        const { width, height } = this.baseElement.getBoundingClientRect();
+        menu.parentElement.style.top =
+          (this.baseElement.offsetTop + height / 2).toString() + 'px';
+        menu.parentElement.style.left =
+          (this.baseElement.offsetLeft + width / 4).toString() + 'px';
       }
     });
     // If mouse leave, please close
-    menu.addEventListener('mouseleave', function() {
-      this.style.display = 'none';
+    container.addEventListener('mouseleave', () => {
+      menu.style.display = 'none';
     });
 
     container.appendChild(menu);
@@ -167,12 +183,21 @@ export class SimpleMenu {
       //! I DON'T LIKE TYPES GUARDS
       //TODO: Subjugate my fear of types guards and make some. Sigh.
 
+      if (typeof content === 'object' && content.iconPrefix) {
+        // If it's a detailled entry
+        if (typeof content.iconPrefix === 'string') {
+          item.innerHTML += content.iconPrefix;
+        } else if (content.iconPrefix instanceof HTMLElement) {
+          item.appendChild(content.iconPrefix);
+        }
+      }
+
       if (typeof content === 'string') {
         item.innerHTML = content;
       } else if (typeof content === 'object' && content.label) {
         // If it's a detailled entry
         if (typeof content.label === 'string') {
-          item.innerHTML = content.label;
+          item.innerHTML += content.label;
         } else if (content.label instanceof HTMLElement) {
           item.appendChild(content.label);
         }
@@ -209,6 +234,7 @@ export class SimpleMenu {
 
       if (
         typeof content === 'object' &&
+        // TODO: I really need a type guard
         (!(content.action || content.label) || content.sub)
       ) {
         // If it's a detailled entry or an entry
@@ -223,28 +249,29 @@ export class SimpleMenu {
 
         const subMenu = this.buildMenu(sub);
 
-        const icon = document.createElement('i');
-        if (this.options?.fontAwesomePrefix) {
-          icon.classList.add(this.options.fontAwesomePrefix);
-        }
-        item.classList.add(css`
-              padding-right: 20px !important;
-    
-              & > i {
-                  position: absolute;
-                  right: 5px;
-              }
-    
-              & > i:before {
-                  content: '${
-                    this.options?.fontAwesomePrefix ? '\\f054' : '>'
-                  }';
-              }
-          `);
-        item.appendChild(icon);
-
         item.appendChild(subMenu);
       }
+
+      if (typeof content === 'object' && content.iconPrefix) {
+        // If it's a detailled entry
+        if (typeof content.iconPrefix === 'string') {
+          item.innerHTML += content.iconPrefix;
+        } else if (content.iconPrefix instanceof HTMLElement) {
+          item.appendChild(content.iconPrefix);
+        }
+      }
+
+      item.classList.add(
+        cx(
+          typeof content === 'object' && Array.isArray(content.classList)
+            ? [...content.classList]
+            : '',
+          typeof content === 'object' && typeof content.css === 'string'
+            ? css(content.css)
+            : ''
+        )
+      );
+
       menu.classList.add(this.className);
       menu.appendChild(item);
     }
