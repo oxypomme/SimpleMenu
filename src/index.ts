@@ -1,49 +1,6 @@
 import { cx, css } from '@emotion/css';
-
-/**
- * Detailled entry in the menu
- */
-interface SMContent {
-  /** The label of the entry */
-  label?: string | HTMLElement;
-  /** Action triggered when user click on the entry */
-  action?: SMHandler;
-  /** Icon prefix of the entry */
-  iconPrefix?: string | HTMLElement;
-  /** Icon suffix of the entry */
-  iconSuffix?: string | HTMLElement;
-  /** Custom CSS as a `string` passed to the entry (through `emotion`) */
-  css?: string;
-  /** Custom CSS classes passed to the menu */
-  classList?: string[];
-  /** Sub-menu content */
-  sub?: SMContext;
-}
-
-/**
- * Classic interface for menu and sub-menu
- */
-interface SMContext {
-  [item: string]: SMContent | SMContext | SMHandler | string;
-}
-
-interface SMOptions {
-  /** If we need to close the menu after a click (default: `false`) */
-  quitAfterClick?: boolean;
-  /** Custom CSS as a `string` passed to the menu (through `emotion`) */
-  css?: string;
-  /** Custom CSS classes passed to the menu */
-  classList?: string[];
-}
-
-/**
- * Action triggered when user click on the action
- *
- * @param ev The original event
- * @param origin The parent of the menu
- */
-// eslint-disable-next-line no-unused-vars
-type SMHandler = (ev: MouseEvent, origin: HTMLElement) => void;
+import { SMOptions, SMContext } from './types';
+import { isSMContent, isSMContext, isSMHandler } from './types/guards';
 
 export class SimpleMenu {
   /** The parent of the menu */
@@ -70,6 +27,10 @@ export class SimpleMenu {
      *  2 - custom classLists
      *  3 - custom CSS
      */
+    let cxargs: string[] = [];
+    if(this.options?.classList) {
+      cxargs = [...cxargs, ...this.options.classList];
+    }
     this.className = cx(
       css`
         display: none;
@@ -81,6 +42,7 @@ export class SimpleMenu {
         border-radius: 3px;
         position: relative;
         background: white;
+        text-align: left;
 
         & & {
           position: absolute;
@@ -99,11 +61,20 @@ export class SimpleMenu {
           cursor: default;
           display: flex;
 
-          & > :first-child:not(ul) {
+          & > .sm_css-prefix,
+          & > .sm_css-suffix {
             flex: 1;
             align-self: center;
-            text-align: start;
+          }
+          
+          & > .sm_css-prefix {
             margin-right: 5px;
+            text-align: start;
+          }
+          
+          & > .sm_css-suffix {
+            margin-left: 5px;
+            text-align: end;
           }
 
           &:hover {
@@ -116,7 +87,7 @@ export class SimpleMenu {
         }
       `,
       // Merging classLists with default CSS
-      this.options?.classList ? [...this.options.classList] : '',
+      ...cxargs,
       // Merging custom CSS with default CSS
       css(this.options?.css) || ''
     );
@@ -125,7 +96,7 @@ export class SimpleMenu {
     const parentClassName = css`
       position: absolute;
     `;
-    container.classList.add(parentClassName);
+    container.classList.add('sm_css-container', parentClassName);
 
     const menu = this.buildMenu(cm);
 
@@ -141,7 +112,6 @@ export class SimpleMenu {
 
       menu.style.display = 'block';
       if (menu.parentElement) {
-        // TODO : 1 element 4 all => Keep positions. Or find a way to ignore a relative parent
         const { width, height } = this.baseElement.getBoundingClientRect();
         menu.parentElement.style.top =
           (this.baseElement.offsetTop + height / 2).toString() + 'px';
@@ -180,32 +150,76 @@ export class SimpleMenu {
       // In case you want to identify each entry
       item.setAttribute('name', `sm_${label.replace(' ', '-')}`);
 
-      //! I DON'T LIKE TYPES GUARDS
-      //TODO: Subjugate my fear of types guards and make some. Sigh.
-
-      if (typeof content === 'object' && content.iconPrefix) {
-        // If it's a detailled entry
-        if (typeof content.iconPrefix === 'string') {
-          item.innerHTML += content.iconPrefix;
-        } else if (content.iconPrefix instanceof HTMLElement) {
-          item.appendChild(content.iconPrefix);
+      if (isSMContent(content)) {
+        if (content.prefix) {
+          if (content.prefix instanceof HTMLElement) {
+            content.prefix.classList.add('sm_css-prefix');
+            item.appendChild(content.prefix);
+          } else {
+            item.innerHTML += content.prefix;
+          }
         }
-      }
 
-      if (typeof content === 'string') {
-        item.innerHTML = content;
-      } else if (typeof content === 'object' && content.label) {
-        // If it's a detailled entry
-        if (typeof content.label === 'string') {
-          item.innerHTML += content.label;
-        } else if (content.label instanceof HTMLElement) {
-          item.appendChild(content.label);
+        if (content.label) {
+          if (content.label instanceof HTMLElement) {
+            item.appendChild(content.label);
+          } else {
+            item.innerHTML += content.label;
+          }
+        } else {
+          item.innerText += label;
         }
-      } else {
-        item.innerText = label;
-      }
 
-      if (typeof content === 'function') {
+        if (content.suffix) {
+          if (content.suffix instanceof HTMLElement) {
+            content.suffix.classList.add('sm_css-suffix');
+            item.appendChild(content.suffix);
+          } else {
+            item.innerHTML += content.suffix;
+          }
+        }
+
+        if (content.action) {
+          item.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (this.options?.quitAfterClick) {
+              closeMenu();
+            }
+            //? Ask TS why I need to this tho
+            if (content.action) {
+              return content.action(ev, this.baseElement);
+            }
+          });
+          item.style.cursor = 'pointer';
+        }
+
+        if (content.sub) {
+          if(!content.suffix && !this.options?.noPredefinedSuffix) {
+            item.innerHTML += '<span class="sm_css-suffix">></span>';
+          }
+          item.appendChild(this.buildMenu(content.sub));
+        }
+
+        if (content.classList || content.css) {
+          let cxargs: string[] = [];
+          if(content.classList) {
+            cxargs = [...cxargs, ...content.classList]
+          }
+          item.classList.add(
+            'sm_css-item ', cx(
+              ...cxargs,
+              content.css ? css(content.css) : ''
+            )
+          );
+        }
+      } else if (isSMContext(content)) {
+        item.innerText += label;
+        if(!this.options?.noPredefinedSuffix) {
+          item.innerHTML += '<span class="sm_css-suffix">></span>';
+        }
+        item.appendChild(this.buildMenu(content));
+      } else if (isSMHandler(content)) {
+        item.innerText += label;
         item.addEventListener('click', ev => {
           ev.stopPropagation();
           if (this.options?.quitAfterClick) {
@@ -214,65 +228,13 @@ export class SimpleMenu {
           return content(ev, this.baseElement);
         });
         item.style.cursor = 'pointer';
-      } else if (
-        typeof content === 'object' &&
-        typeof content.action === 'function'
-      ) {
-        // If it's a detailled entry
-        item.addEventListener('click', ev => {
-          ev.stopPropagation();
-          if (this.options?.quitAfterClick) {
-            closeMenu();
-          }
-          if (typeof content.action === 'function') {
-            //? Ask TS why I need to this tho
-            return content.action(ev, this.baseElement);
-          }
-        });
-        item.style.cursor = 'pointer';
+      } else if (typeof content === 'string') {
+        item.innerHTML += content;
+      } else {
+        item.innerText += label;
       }
 
-      if (
-        typeof content === 'object' &&
-        // TODO: I really need a type guard
-        (!(content.action || content.label) || content.sub)
-      ) {
-        // If it's a detailled entry or an entry
-        let sub: SMContext;
-        if (!content.sub) {
-          // If it's an entry
-          sub = content as SMContext;
-        } else {
-          // If it's a detailled entry
-          sub = content.sub as SMContext;
-        }
-
-        const subMenu = this.buildMenu(sub);
-
-        item.appendChild(subMenu);
-      }
-
-      if (typeof content === 'object' && content.iconPrefix) {
-        // If it's a detailled entry
-        if (typeof content.iconPrefix === 'string') {
-          item.innerHTML += content.iconPrefix;
-        } else if (content.iconPrefix instanceof HTMLElement) {
-          item.appendChild(content.iconPrefix);
-        }
-      }
-
-      item.classList.add(
-        cx(
-          typeof content === 'object' && Array.isArray(content.classList)
-            ? [...content.classList]
-            : '',
-          typeof content === 'object' && typeof content.css === 'string'
-            ? css(content.css)
-            : ''
-        )
-      );
-
-      menu.classList.add(this.className);
+      menu.classList.add('sm_css-menu', this.className);
       menu.appendChild(item);
     }
 
