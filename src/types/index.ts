@@ -16,6 +16,8 @@ export interface SMContent {
   classList?: string[];
   /** Sub-menu content */
   sub?: SMContext;
+  /** Check if item must be showed */
+  condition?: SMCondition
 }
 export const SMContentKeys = [
   'label',
@@ -24,8 +26,14 @@ export const SMContentKeys = [
   'suffix',
   'css',
   'classList',
-  'sub'
+  'sub',
+  'condition'
 ];
+
+/**
+ * A callback called at each opening event of the menu.
+ */
+export type SMCondition = () => boolean;
 
 /**
  * Action triggered when user click on the action
@@ -56,4 +64,8 @@ export interface SMOptions {
   noPredefinedSuffix?: boolean;
   /** If menu must be in parent's element */
   keepInParent?: boolean;
+}
+
+export interface HTMLSMElement extends HTMLLIElement {
+  checkCondition?: () => boolean;
 }

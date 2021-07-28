@@ -1,5 +1,5 @@
 import { cx, css } from '@emotion/css';
-import { SMOptions, SMContext } from './types';
+import { SMOptions, SMContext, HTMLSMElement } from './types';
 import { isSMContent, isSMContext, isSMHandler } from './types/guards';
 
 export class SimpleMenu {
@@ -55,7 +55,7 @@ export class SimpleMenu {
           }
         }
 
-        & > li {
+        & > .sm_css-item {
           position: relative;
           padding: 5px;
           cursor: default;
@@ -87,10 +87,10 @@ export class SimpleMenu {
           &:last-child:hover {
             border-radius: 0 0 3px 3px;
           }
+        }
 
-          &:hover > ul {
-            display: block;
-          }
+        & > .sm_css-item:hover > & {
+          display: block;
         }
       `,
       // Merging classLists with default CSS
@@ -114,10 +114,11 @@ export class SimpleMenu {
       document
         .querySelectorAll(`.${parentClassName} > .${this.className}`)
         .forEach(m => {
-          (<HTMLElement>m).style.display = 'none';
+          (<HTMLElement>m).style.display = '';
         });
 
       menu.style.display = 'block';
+      // Setting menu position
       if (menu.parentElement) {
         const baseRect = this.baseElement.getBoundingClientRect();
         const coords: { [type: string]: number } = {
@@ -144,10 +145,12 @@ export class SimpleMenu {
             coordValue.toString() + 'px';
         }
       }
+
+      this.checkChildsConditions(menu);
     });
     // If mouse leave, please close
     container.addEventListener('mouseleave', () => {
-      menu.style.display = 'none';
+      menu.style.display = '';
     });
 
     container.appendChild(menu);
@@ -166,15 +169,16 @@ export class SimpleMenu {
     /**
      * Close the whole menu
      */
-    const closeMenu = () => (menu.style.display = 'none');
+    const closeMenu = () => (menu.style.display = '');
     if (this.options?.quitAfterClick) {
       menu.addEventListener('click', closeMenu);
     }
 
     for (const [label, content] of Object.entries(cm)) {
-      const item = document.createElement('li');
+      const item = <HTMLSMElement>document.createElement('li');
       // In case you want to identify each entry
       item.setAttribute('name', `sm_${label.replace(' ', '-')}`);
+      item.classList.add('sm_css-item');
 
       if (isSMContent(content)) {
         if (content.prefix) {
@@ -219,6 +223,19 @@ export class SimpleMenu {
           item.style.cursor = 'pointer';
         }
 
+        if(content.condition) {
+          item.checkCondition = () => {
+            //? Ask TS why I need to this tho
+            if(content.condition && content.condition()) {
+              item.style.display = '';
+              return true;
+            } else {
+              item.style.display = 'none';
+              return false;
+            }
+          }
+        }
+
         if (content.sub) {
           if (!content.suffix && !this.options?.noPredefinedSuffix) {
             item.innerHTML += '<span class="sm_css-suffix">></span>';
@@ -232,7 +249,6 @@ export class SimpleMenu {
             cxargs = [...cxargs, ...content.classList];
           }
           item.classList.add(
-            'sm_css-item',
             cx(...cxargs, content.css ? css(content.css) : '')
           );
         }
@@ -263,5 +279,17 @@ export class SimpleMenu {
     }
 
     return menu;
+  }
+
+  private checkChildsConditions(menu: HTMLElement): void {
+    menu.querySelectorAll(':scope > .sm_css-item').forEach((itemElement) => {
+      const item = <HTMLSMElement>itemElement;
+      if(item.checkCondition && item.checkCondition()) {
+        const submenu = <HTMLElement>item.querySelector(`:scope > .${this.className}`);
+        if(submenu) {
+          this.checkChildsConditions(submenu);
+        }
+      }
+    });
   }
 }
